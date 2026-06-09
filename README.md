@@ -233,7 +233,7 @@ The **Forecast Tab** executes the XGBoost machine learning engine in real-time, 
 ### Prerequisite: PostgreSQL Setup
 Ensure PostgreSQL is running locally on port 5432 and a database named `market_analysis` exists. Update your credentials in the `.env` file at the project root:
 ```env
-DbPass=root123
+DbPass=your_db_pass
 api-key=YOUR_API_GOV_IN_KEY
 gemini=YOUR_GEMINI_API_KEY
 ```
