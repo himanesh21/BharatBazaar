@@ -1,0 +1,55 @@
+.env
+all_food_prices.json
+data.csv
+filtered_prices.csv
+full_food_price_data.csv
+postgresql_ingestion.py
+star
+schema.py
+json_inference.py
+
+# Python temporary and cache files
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+ENV/
+
+# Large datasets & local database dumps
+*.csv
+testing/api_fetched_data/
+data/
+
+# Frontend builds & dependencies
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+
+# Power BI reports (contain heavy data caches)
+*.pbix
+powerbi/
+
+# Machine learning models (large binary files)
+backend/models/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+start_project.py
+prediction.ipynb
+train_models.py
+run_app.bat
+
+organize_folders.py
+check_ingestion.py
+
+project_guide.md
+testing
+scratch
+powerbi
+data
+colab_data_fetching
+
