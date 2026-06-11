@@ -20,7 +20,7 @@ ENV/
 # Large datasets & local database dumps
 *.csv
 testing/api_fetched_data/
-data/
+/data/
 
 # Frontend builds & dependencies
 node_modules/
