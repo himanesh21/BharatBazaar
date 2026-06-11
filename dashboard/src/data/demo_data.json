@@ -1,0 +1,109 @@
+{
+  "kpis": {
+    "avgPrice": 3693.98,
+    "totalRecords": 13392,
+    "totalStates": 25,
+    "topCommodity": "Cloves"
+  },
+  "topCommodities": [
+    "Cloves",
+    "Cardamoms",
+    "Pepper ungarbled",
+    "Ghee",
+    "Pepper garbled",
+    "Black pepper",
+    "Arecanut(Betelnut/Supari)",
+    "Cashewnuts",
+    "Raibel",
+    "Nutmeg"
+  ],
+  "trends": {
+    "Cloves": [
+      {
+        "month": "Jul",
+        "modal_price": 80000.0
+      }
+    ],
+    "Cardamoms": [
+      {
+        "month": "Jul",
+        "modal_price": 75000.0
+      }
+    ],
+    "Pepper ungarbled": [
+      {
+        "month": "Jul",
+        "modal_price": 48670.0
+      }
+    ],
+    "Ghee": [
+      {
+        "month": "Jul",
+        "modal_price": 48625.0
+      }
+    ],
+    "Pepper garbled": [
+      {
+        "month": "Jul",
+        "modal_price": 47675.0
+      }
+    ],
+    "Black pepper": [
+      {
+        "month": "Jul",
+        "modal_price": 45003.28571428572
+      }
+    ],
+    "Arecanut(Betelnut/Supari)": [
+      {
+        "month": "Jul",
+        "modal_price": 35216.6875
+      }
+    ],
+    "Cashewnuts": [
+      {
+        "month": "Jul",
+        "modal_price": 32908.333333333336
+      }
+    ],
+    "Raibel": [
+      {
+        "month": "Jul",
+        "modal_price": 30000.0
+      }
+    ],
+    "Nutmeg": [
+      {
+        "month": "Jul",
+        "modal_price": 28000.0
+      }
+    ]
+  },
+  "statePricing": {
+    "Andhra Pradesh": 5000.94,
+    "Bihar": 2416.3,
+    "Chattisgarh": 2583.81,
+    "Goa": 18257.24,
+    "Gujarat": 4576.99,
+    "Haryana": 2435.88,
+    "Himachal Pradesh": 4021.26,
+    "Jammu and Kashmir": 3442.68,
+    "Karnataka": 5042.76,
+    "Kerala": 5019.17,
+    "Madhya Pradesh": 3140.53,
+    "Maharashtra": 3660.69,
+    "Meghalaya": 6422.73,
+    "NCT of Delhi": 5966.8,
+    "Nagaland": 4646.15,
+    "Odisha": 3427.11,
+    "Pondicherry": 3359.18,
+    "Punjab": 2428.3,
+    "Rajasthan": 3854.84,
+    "Tamil Nadu": 4540.67,
+    "Telangana": 2997.62,
+    "Tripura": 5894.94,
+    "Uttar Pradesh": 3298.73,
+    "Uttrakhand": 1865.14,
+    "West Bengal": 3751.92
+  }
+}
