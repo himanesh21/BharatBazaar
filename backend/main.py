@@ -10,8 +10,16 @@ from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
-db_pass = os.getenv('DbPass', 'root123')
-db_uri = f"postgresql+psycopg2://postgres:{db_pass}@localhost:5432/market_analysis"
+db_uri = os.getenv('DATABASE_URL')
+if db_uri and db_uri.startswith("postgres://"):
+    db_uri = db_uri.replace("postgres://", "postgresql+psycopg2://", 1)
+elif db_uri and not db_uri.startswith("postgresql+psycopg2://"):
+    db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+if not db_uri:
+    db_pass = os.getenv('DbPass', 'root123')
+    db_uri = f"postgresql+psycopg2://postgres:{db_pass}@localhost:5432/market_analysis"
+
 engine = create_engine(db_uri)
 
 app = FastAPI(title="BharatBazaar API Backend")
@@ -452,7 +460,30 @@ async def get_forecast_internal(market_id: int, commodity_id: int):
     """
     # Locate model on disk
     model_dir = os.path.join(os.path.dirname(__file__), "models")
-    model_path = os.path.join(model_dir, f"model_{market_id}_{commodity_id}.json")
+    os.makedirs(model_dir, exist_ok=True)
+    model_name = f"model_{market_id}_{commodity_id}.json.gz"
+    model_path = os.path.join(model_dir, model_name)
+    
+    if not os.path.exists(model_path):
+        s3_endpoint = os.getenv("S3_ENDPOINT_URL")
+        s3_key_id = os.getenv("S3_ACCESS_KEY_ID")
+        s3_secret = os.getenv("S3_SECRET_ACCESS_KEY")
+        bucket_name = os.getenv("S3_BUCKET_NAME")
+        
+        if s3_endpoint and s3_key_id and s3_secret and bucket_name:
+            try:
+                import boto3
+                print(f"☁️ Downloading model {model_name} from S3 cloud storage...")
+                s3_client = boto3.client(
+                    's3',
+                    endpoint_url=s3_endpoint,
+                    aws_access_key_id=s3_key_id,
+                    aws_secret_access_key=s3_secret
+                )
+                s3_client.download_file(bucket_name, model_name, model_path)
+                print(f"✅ Successfully downloaded and cached {model_name}!")
+            except Exception as e:
+                print(f"⚠️ Failed to download {model_name} from cloud storage: {e}")
     
     if not os.path.exists(model_path):
         raise HTTPException(
@@ -516,10 +547,27 @@ async def get_forecast_internal(market_id: int, commodity_id: int):
     prices_list = [float(r[2]) for r in series_res]
     dates_list = [pd.to_datetime(r[0]) for r in series_res]
     
-    # Load XGBoost Regressor
+    # Load XGBoost Regressor from gzipped file
     try:
-        model = XGBRegressor()
-        model.load_model(model_path)
+        import gzip
+        with gzip.open(model_path, 'rb') as f:
+            model_bytes = f.read()
+        
+        try:
+            model = XGBRegressor()
+            model.load_model(model_bytes)
+        except Exception:
+            # Fallback: Write UBJSON bytes to a temporary file with a '.ubj' extension
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix=".ubj", delete=False) as temp_file:
+                temp_file.write(model_bytes)
+                temp_file_path = temp_file.name
+            try:
+                model = XGBRegressor()
+                model.load_model(temp_file_path)
+            finally:
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load prediction model: {str(e)}")
         

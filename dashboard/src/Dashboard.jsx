@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import IndiaMap from './components/IndiaMap';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'explorer'
   const [selectedState, setSelectedState] = useState(null);
@@ -59,7 +61,7 @@ const Dashboard = () => {
   const fetchOverview = () => {
     setLoadingOverview(true);
     setOverviewError(null);
-    let url = 'http://localhost:8080/api/overview';
+    let url = `${API_BASE_URL}/api/overview`;
     if (selectedState) {
       url += `?state=${encodeURIComponent(selectedState)}`;
     }
@@ -92,7 +94,7 @@ const Dashboard = () => {
   // 1. Fetch States on tab switch
   useEffect(() => {
     if (activeTab === 'explorer' && explorerStates.length === 0) {
-      fetch('http://localhost:8080/api/filters')
+      fetch(`${API_BASE_URL}/api/filters`)
         .then(res => res.json())
         .then(json => {
           setExplorerStates(json.states || []);
@@ -124,7 +126,7 @@ const Dashboard = () => {
     setExplorerMarkets([]);
     setExplorerCommodities([]);
     
-    fetch(`http://localhost:8080/api/filters?state_id=${stateObj.state_id}`)
+    fetch(`${API_BASE_URL}/api/filters?state_id=${stateObj.state_id}`)
       .then(res => res.json())
       .then(json => {
         setExplorerDistricts(json.districts || []);
@@ -155,7 +157,7 @@ const Dashboard = () => {
     setExplorerMarkets([]);
     setExplorerCommodities([]);
     
-    fetch(`http://localhost:8080/api/filters?state_id=${stateObj.state_id}&district=${encodeURIComponent(selectedExplorerDistrict)}`)
+    fetch(`${API_BASE_URL}/api/filters?state_id=${stateObj.state_id}&district=${encodeURIComponent(selectedExplorerDistrict)}`)
       .then(res => res.json())
       .then(json => {
         setExplorerMarkets(json.markets || []);
@@ -182,7 +184,7 @@ const Dashboard = () => {
     setSelectedExplorerCommodity('');
     setExplorerCommodities([]);
     
-    fetch(`http://localhost:8080/api/filters?market_id=${marketObj.market_id}`)
+    fetch(`${API_BASE_URL}/api/filters?market_id=${marketObj.market_id}`)
       .then(res => res.json())
       .then(json => {
         setExplorerCommodities(json.commodities || []);
@@ -205,7 +207,7 @@ const Dashboard = () => {
     setLoadingExplorer(true);
     setExplorerError(null);
     
-    const url = `http://localhost:8080/api/explorer?commodity=${encodeURIComponent(selectedExplorerCommodity)}&state_id=${stateObj.state_id}&district=${encodeURIComponent(selectedExplorerDistrict)}&market_id=${marketObj.market_id}`;
+    const url = `${API_BASE_URL}/api/explorer?commodity=${encodeURIComponent(selectedExplorerCommodity)}&state_id=${stateObj.state_id}&district=${encodeURIComponent(selectedExplorerDistrict)}&market_id=${marketObj.market_id}`;
     
     fetch(url)
       .then(res => {
@@ -237,7 +239,7 @@ const Dashboard = () => {
   // 1. Fetch Forecast States on activeTab switch
   useEffect(() => {
     if (activeTab === 'forecast' && forecastStates.length === 0) {
-      fetch('http://localhost:8080/api/filters')
+      fetch(`${API_BASE_URL}/api/filters`)
         .then(res => res.json())
         .then(json => {
           setForecastStates(json.states || []);
@@ -265,7 +267,7 @@ const Dashboard = () => {
     setForecastMarkets([]);
     setForecastCommodities([]);
 
-    fetch(`http://localhost:8080/api/filters?state_id=${stateObj.state_id}&all_markets=true`)
+    fetch(`${API_BASE_URL}/api/filters?state_id=${stateObj.state_id}&all_markets=true`)
       .then(res => res.json())
       .then(json => {
         setForecastMarkets(json.markets || []);
@@ -292,7 +294,7 @@ const Dashboard = () => {
     setSelectedForecastCommodity('');
     setForecastCommodities([]);
 
-    fetch(`http://localhost:8080/api/filters?market_id=${marketObj.market_id}`)
+    fetch(`${API_BASE_URL}/api/filters?market_id=${marketObj.market_id}`)
       .then(res => res.json())
       .then(json => {
         setForecastCommodities(json.commodities || []);
@@ -316,8 +318,8 @@ const Dashboard = () => {
     setForecastData(null);
     setForecastHistory([]);
 
-    const inferenceUrl = `http://localhost:8080/api/inference?market_id=${marketObj.market_id}&commodity=${encodeURIComponent(selectedForecastCommodity)}`;
-    const historyUrl = `http://localhost:8080/api/explorer?commodity=${encodeURIComponent(selectedForecastCommodity)}&state_id=${stateObjId(selectedForecastState)}&market_id=${marketObj.market_id}`;
+    const inferenceUrl = `${API_BASE_URL}/api/inference?market_id=${marketObj.market_id}&commodity=${encodeURIComponent(selectedForecastCommodity)}`;
+    const historyUrl = `${API_BASE_URL}/api/explorer?commodity=${encodeURIComponent(selectedForecastCommodity)}&state_id=${stateObjId(selectedForecastState)}&market_id=${marketObj.market_id}`;
 
     // Helper to resolve state ID
     function stateObjId(name) {

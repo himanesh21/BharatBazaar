@@ -26,8 +26,8 @@ headers = {
 # start_date = "18/10/2022"
 # end_date = "09/07/2025"
 
-start_date = "11/07/2025"
-end_date = "09/06/2026"
+start_date = "10/06/2026"
+end_date = "10/06/2026"
 
 start_day, start_month, start_year = map(int, start_date.split("/"))
 end_day, end_month, end_year = map(int, end_date.split("/"))
@@ -86,14 +86,14 @@ for date_str in tqdm(list(generate_date_strings(start_day, start_month, start_ye
     if all_records:
         df = pd.DataFrame(all_records)
         safe_date = date_str.replace("/", "-")
-        df.to_csv(f"testing/api_fetched_data/all_food_prices{safe_date}.csv", index=False)
+        df.to_csv(f"deployment_data/all_food_prices_{safe_date}.csv", index=False)
         print(f"✅ Saved {len(df)} records for {date_str}")
     else:
         print(f"⚠️ No data for {date_str}")
 
 # Optional: Save skipped dates
 if skipped_dates:
-    with open("testing/api_fetched_data/skipped_dates.txt", "w") as f:
+    with open("deployment_data/skipped_dates.txt", "w") as f:
         for d in skipped_dates:
             f.write(d + "\n")
     print(f"\n❗ Skipped {len(skipped_dates)} dates. Logged to 'skipped_dates.txt'")

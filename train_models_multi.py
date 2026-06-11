@@ -56,12 +56,11 @@ def add_features(df):
 
     return df.dropna()
 
-def train_single_series(db_pass, market_id, commodity_id, min_records, models_dir):
+def train_single_series(db_uri, market_id, commodity_id, min_records, models_dir):
     """
     Worker function executed in child processes.
     Creates its own DB connection to avoid process-sharing.
     """
-    db_uri = f"postgresql+psycopg2://postgres:{db_pass}@localhost:5432/market_analysis"
     # Create engine for this process
     engine = create_engine(db_uri)
     
@@ -106,7 +105,7 @@ def train_single_series(db_pass, market_id, commodity_id, min_records, models_di
             early_stopping_rounds=30  # Stop if validation score stops improving for 30 trees
         )
         
-        model.fit(X_train, y_train)
+        model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
         
         # 5. Evaluate
         preds = model.predict(X_test)
@@ -119,9 +118,15 @@ def train_single_series(db_pass, market_id, commodity_id, min_records, models_di
         rmse_clipped = float(np.clip(rmse_val, 0.0, 99999999.99))
         r2_clipped = float(np.clip(r2_val, -999.99, 1.0))
         
-        # 6. Save model to JSON
-        model_path = os.path.join(models_dir, f"model_{market_id}_{commodity_id}.json")
-        model.save_model(model_path)
+        # 6. Save model to JSON and compress using Gzip
+        import gzip
+        temp_path = os.path.join(models_dir, f"model_{market_id}_{commodity_id}.tmp")
+        model_path = os.path.join(models_dir, f"model_{market_id}_{commodity_id}.json.gz")
+        model.save_model(temp_path)
+        with open(temp_path, 'rb') as f_in:
+            with gzip.open(model_path, 'wb') as f_out:
+                f_out.write(f_in.read())
+        os.remove(temp_path)
         
         # 7. Package metrics and importances to return
         importances = model.feature_importances_
@@ -147,13 +152,20 @@ def train_single_series(db_pass, market_id, commodity_id, min_records, models_di
 
 def main():
     load_dotenv()
-    db_pass = os.getenv('DbPass', 'root123')
+    db_uri = os.getenv('DATABASE_URL')
+    if db_uri and db_uri.startswith("postgres://"):
+        db_uri = db_uri.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif db_uri and not db_uri.startswith("postgresql+psycopg2://"):
+        db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    if not db_uri:
+        db_pass = os.getenv('DbPass', 'root123')
+        db_uri = f"postgresql+psycopg2://postgres:{db_pass}@localhost:5432/market_analysis"
     
     # Target directory for model files
     models_dir = "backend/models"
     os.makedirs(models_dir, exist_ok=True)
     
-    db_uri = f"postgresql+psycopg2://postgres:{db_pass}@localhost:5432/market_analysis"
     engine = create_engine(db_uri)
     
     # 1. Verify/Create tables if they do not exist
@@ -221,7 +233,7 @@ def main():
         futures = {
             executor.submit(
                 train_single_series, 
-                db_pass, 
+                db_uri, 
                 int(row['market_id']), 
                 int(row['commodity_id']), 
                 180, 
@@ -230,6 +242,7 @@ def main():
             for _, row in series_df.iterrows()
         }
         
+        printed_errors = 0
         for future in concurrent.futures.as_completed(futures):
             market_id, commodity_id = futures[future]
             pbar.update(1)
@@ -240,6 +253,9 @@ def main():
                     continue
                 if "error" in res:
                     error_count += 1
+                    if printed_errors < 5:
+                        print(f"\n⚠️ Training failed for market {market_id}, commodity {commodity_id}: {res['error']}")
+                        printed_errors += 1
                     continue
                     
                 success_count += 1
@@ -280,6 +296,41 @@ def main():
     print(f" - Successfully trained: {success_count}/{total_series} series")
     print(f" - Failed/skipped: {error_count}/{total_series} series")
     print(f" - Model files written to: {models_dir}")
+
+    # S3-compatible Storage Upload Integration (Supabase Storage / Cloudflare R2 / AWS S3)
+    s3_endpoint = os.getenv("S3_ENDPOINT_URL")
+    s3_key_id = os.getenv("S3_ACCESS_KEY_ID")
+    s3_secret = os.getenv("S3_SECRET_ACCESS_KEY")
+    bucket_name = os.getenv("S3_BUCKET_NAME")
+
+    if s3_endpoint and s3_key_id and s3_secret and bucket_name:
+        try:
+            import boto3
+            print("\n☁️ Uploading models to S3-compatible cloud bucket...")
+            s3_client = boto3.client(
+                's3',
+                endpoint_url=s3_endpoint,
+                aws_access_key_id=s3_key_id,
+                aws_secret_access_key=s3_secret
+            )
+            
+            model_files = [f for f in os.listdir(models_dir) if f.endswith(".json.gz")]
+            upload_success = 0
+            
+            for file_name in tqdm(model_files, desc="Uploading to S3"):
+                local_path = os.path.join(models_dir, file_name)
+                try:
+                    s3_client.upload_file(local_path, bucket_name, file_name)
+                    upload_success += 1
+                except Exception as e:
+                    print(f"Failed to upload {file_name}: {e}")
+                    
+            print(f"✅ Successfully uploaded {upload_success}/{len(model_files)} models to cloud storage!")
+        except Exception as e:
+            print(f"❌ Error during cloud upload process: {e}")
+    else:
+        print("\nℹ️ S3 credentials (S3_ENDPOINT_URL, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY) or S3_BUCKET_NAME not set in environment.")
+        print("Models are kept locally. Cloud upload skipped.")
 
 def write_bulk_updates(engine, eval_list, feat_list):
     """

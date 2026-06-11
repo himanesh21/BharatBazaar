@@ -7,7 +7,7 @@ postgresql_ingestion.py
 star
 schema.py
 json_inference.py
-
+.github
 # Python temporary and cache files
 __pycache__/
 *.py[cod]
@@ -52,4 +52,7 @@ scratch
 powerbi
 data
 colab_data_fetching
+deployment_data
+concurrency.py
+daily_mandi_update.py
 

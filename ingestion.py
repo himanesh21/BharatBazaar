@@ -15,8 +15,8 @@ from sqlalchemy import create_engine, text
 
 # Load API Keys
 load_dotenv()
-apikey = os.getenv('api-key')
-gemini_key = os.getenv('gemini')
+apikey = os.getenv('api-key') or os.getenv('API_KEY')
+gemini_key = os.getenv('gemini') or os.getenv('GEMINI_API_KEY')
 
 # Date generator
 def generate_date_strings(start_d, start_m, start_y, end_d, end_m, end_y):
@@ -92,7 +92,7 @@ def ETL_and_SQL_ingestion(df, engine):
         mapped_names = json.load(f)
 
     genai.configure(api_key=gemini_key)
-    model = genai.GenerativeModel("gemini-1.5-pro")
+    model = genai.GenerativeModel("gemini-1.5-flash")
 
     def get_common_english_name(name):
         prompt = f"Translate the Indian agricultural commodity name '{name}' into its most common English name used in India. Do not include local names, Hindi, or brackets. Just return the common English name."
@@ -118,6 +118,7 @@ def ETL_and_SQL_ingestion(df, engine):
 
     # Map raw state names to standardized map state names
     state_name_cleaner = {
+        "Keralam": "Kerala",
         "Chattisgarh": "Chhattisgarh",
         "Nct Of Delhi": "Delhi",
         "Nct of Delhi": "Delhi",
@@ -269,26 +270,100 @@ def prepopulate_state_dim(engine):
             print("Successfully populated state_dim!")
 
 
+def create_tables_if_not_exist(engine):
+    queries = [
+        """
+        CREATE TABLE IF NOT EXISTS state_dim (
+            state_id INT PRIMARY KEY,
+            state VARCHAR(255) UNIQUE NOT NULL
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS commodity_dim (
+            commodity_id SERIAL PRIMARY KEY,
+            commodity VARCHAR(255) NOT NULL,
+            variety VARCHAR(255) NOT NULL,
+            grade VARCHAR(255) NOT NULL,
+            UNIQUE (commodity, variety, grade)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS market_dim (
+            market_id SERIAL PRIMARY KEY,
+            market VARCHAR(255) NOT NULL,
+            district VARCHAR(255) NOT NULL,
+            state_id INT REFERENCES state_dim(state_id) ON DELETE CASCADE,
+            UNIQUE (market, district, state_id)
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS date_dim (
+            date_id SERIAL PRIMARY KEY,
+            arrival_date DATE UNIQUE NOT NULL,
+            day INT NOT NULL,
+            month INT NOT NULL,
+            year INT NOT NULL,
+            weekday VARCHAR(50) NOT NULL
+        );
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS fact_market_prices (
+            date_id INT REFERENCES date_dim(date_id) ON DELETE CASCADE,
+            market_id INT REFERENCES market_dim(market_id) ON DELETE CASCADE,
+            commodity_id INT REFERENCES commodity_dim(commodity_id) ON DELETE CASCADE,
+            min_price NUMERIC(12, 2) NOT NULL,
+            max_price NUMERIC(12, 2) NOT NULL,
+            modal_price NUMERIC(12, 2) NOT NULL,
+            PRIMARY KEY (date_id, market_id, commodity_id)
+        );
+        """
+    ]
+    with engine.begin() as conn:
+        for q in queries:
+            conn.execute(text(q))
+    print("✨ Database tables verified/created successfully.")
+
+
 # ---- Example Execution Block ----
 
-engine = create_engine("postgresql+psycopg2://postgres:root123@localhost:5432/market_analysis", isolation_level="AUTOCOMMIT")
+if __name__ == "__main__":
+    db_uri = os.getenv('DATABASE_URL')
+    if db_uri and db_uri.startswith("postgres://"):
+        # Render and Supabase sometimes give connection strings starting with postgres:// instead of postgresql://
+        db_uri = db_uri.replace("postgres://", "postgresql+psycopg2://", 1)
+    elif db_uri and not db_uri.startswith("postgresql+psycopg2://"):
+        db_uri = db_uri.replace("postgresql://", "postgresql+psycopg2://", 1)
 
-# Prepopulate state_dim using our map indexes
-prepopulate_state_dim(engine)
+    if not db_uri:
+        db_pass = os.getenv('DbPass', 'root123')
+        db_uri = f"postgresql+psycopg2://postgres:{db_pass}@localhost:5432/market_analysis"
 
-start_date = "18/10/2022"
-end_date = "09/07/2025"
-start_day, start_month, start_year = map(int, start_date.split("/"))
-end_day, end_month, end_year = map(int, end_date.split("/"))
+    engine = create_engine(db_uri, isolation_level="AUTOCOMMIT")
 
-for date_str in tqdm(list(generate_date_strings(start_day, start_month, start_year, end_day, end_month, end_year)), desc="🤡 INGEsting by date"):
-    safe_date = date_str.replace("/", "-")
-    print(safe_date)
-    df_path = f"testing/api_fetched_data/all_food_prices_{safe_date}.csv"
-    if os.path.exists(df_path):
-        df = pd.read_csv(df_path)
-        ETL_and_SQL_ingestion(df, engine)
-        print("started Ingestion")
-    else:
-        print(f"❌ Missing file: {df_path}")
+    # Ensure tables are setup before ingestion
+    create_tables_if_not_exist(engine)
+
+    # Prepopulate state_dim using our map indexes
+    prepopulate_state_dim(engine)
+
+    start_date = "10/06/2026"
+    end_date = "10/06/2026"
+    start_day, start_month, start_year = map(int, start_date.split("/"))
+    end_day, end_month, end_year = map(int, end_date.split("/"))
+
+    for date_str in tqdm(list(generate_date_strings(start_day, start_month, start_year, end_day, end_month, end_year)), desc="🤡 INGEsting by date"):
+        safe_date = date_str.replace("/", "-")
+        
+        # Try deployment_data first, fallback to testing/api_fetched_data
+        df_path = f"deployment_data/all_food_prices_{safe_date}.csv"
+        if not os.path.exists(df_path):
+            df_path = f"testing/api_fetched_data/all_food_prices_{safe_date}.csv"
+            
+        if os.path.exists(df_path):
+            df = pd.read_csv(df_path)
+            ETL_and_SQL_ingestion(df, engine)
+            print(f"Ingested {safe_date}")
+        else:
+            print(f"❌ Missing file: {df_path}")
+
 
